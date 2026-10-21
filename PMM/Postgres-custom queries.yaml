@@ -1,0 +1,38 @@
+# Custom postgres_exporter queries for PMM
+# Destination on each PostgreSQL host:/usr/local/percona/pmm/collectors/custom-queries/postgresql/medium-resolution/postgres-custom-queries.yaml
+# Resulting metric names = <query_name>_<column>
+  e.g.:
+# pg_replication_lag_seconds_lag_seconds
+# pg_stat_replication_count_count
+# pg_transaction_anomaly_n_tup_ins / _n_tup_upd / _n_tup_del
+
+pg_replication_lag_seconds:
+  query: 
+    SELECT
+      CASE WHEN pg_is_in_recovery() THEN
+        EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))
+      ELSE 0 END AS lag_seconds
+  metrics:
+    - lag_seconds:
+        usage: "GAUGE"
+        description: "ثانیه‌های تاخیر replication روی standby (Replication lag in seconds on standby)"
+
+pg_stat_replication_count:
+  query: "SELECT count(*) AS count FROM pg_stat_replication"
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "تعداد standby های متصل و در حال streaming (Connected streaming standbys, meaningful on primary)"
+
+pg_transaction_anomaly:
+  query: 
+    SELECT
+      relname,
+      n_tup_ins, n_tup_upd, n_tup_del
+    FROM pg_stat_user_tables
+    WHERE relname = 'payment_transactions'
+  metrics:
+    - relname: { usage: "LABEL", description: "Table name" }
+    - n_tup_ins: { usage: "COUNTER", description: "تعداد insert تجمعی (Cumulative inserts)" }
+    - n_tup_upd: { usage: "COUNTER", description: "تعداد update تجمعی (Cumulative updates)" }
+    - n_tup_del: { usage: "COUNTER", description: "تعداد delete تجمعی (Cumulative deletes)" }
